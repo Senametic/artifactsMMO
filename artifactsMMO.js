@@ -8,51 +8,96 @@ const headers = {
     Authorization: `Bearer ${TOKEN}`,
 };
 
-async function action(url, body) {
-    try {
-        const response = await fetch(url, {method: `POST`, headers: headers, body: body});
-        const data = await response.json();
-        if (!response.ok) {
-            console.error("HTTP error:", response.status, response.statusText);
-            console.log(await response.text());
-            return;
-        }
-        console.log(data);
-        const {cooldown} = data.data;
-        await sleep(cooldown.total_seconds);
-    } catch (error) {
-        console.error(error);
-    }
-}
+
 
 function sleep(seconds) {
     console.log(`⏳ Cooldown started: ${seconds} seconds`);
     return new Promise(resolve => { setTimeout(resolve, seconds * 1000); });
 }
 
+
+async function get_Characters(){
+    const url = 'https://api.artifactsmmo.com/my/characters';
+    const response = await fetch(url, {method: `GET`, headers: headers});
+    const data = await response.json();
+    return data;
+}
+
+
+async function get_CharacterLogs(){
+    const url = 'https://api.artifactsmmo.com/my/logs/ethanol';
+    const response = await fetch(url, {method: `GET`, headers: headers});
+    const data = await response.json();
+    return data;
+}
+
+
+async function action(url, body) {
+    if (!body) {
+        body = JSON.stringify({});
+    }
+    try {
+        const response = await fetch(url, {method: `POST`, headers: headers, body: body});
+        const data = await response.json();
+        const {cooldown} = data.data;
+        await sleep(cooldown.remaining_seconds);
+        return data.data;
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+
 async function move(x,y) {
+    
     const url = 'https://api.artifactsmmo.com/my/ethanol/action/move';
     const body = JSON.stringify({ x, y });
-    //console.log(`Moved to [${x}, ${y}]`)
     await action(url, body);
 }
 
+
+async function rest(){
+    const url = 'https://api.artifactsmmo.com/my/ethanol/action/rest';
+    await action(url, undefined);
+}
+
+
+async function fight() {
+    const url = 'https://api.artifactsmmo.com/my/ethanol/action/fight';
+    const body = JSON.stringify({ participants: ["ethanol"] });
+    const data = await action(url, body);
+    const {characters} = data;
+    const {hp, max_hp} = characters[0];
+    if (hp < max_hp * 0.5) {
+        await rest();
+    }
+}
+
+
 async function check_IfTaskTaken() {
     const url = 'https://api.artifactsmmo.com/my/ethanol/action/task/complete';
-    awaitaction(url, body)
+    const data = await get_Characters();
+
 }
+
+
 async function check_IfTaskComplete() {
+
 
 }
 async function accept_NewTask() {
     const url = 'https://api.artifactsmmo.com/my/ethanol/action/task/new';
-    awaitaction(url, body)
+
 
 
 }
 async function main() {
     while (true) {
-        await move(0, 4);
+        const data = await get_CharacterLogs();
+        if(data.content){
+            await sleep(data.content.cooldown.remaining_seconds);
+        }
+        await fight();
     }
 }
 await main();
