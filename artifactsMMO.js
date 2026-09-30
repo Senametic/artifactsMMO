@@ -7,7 +7,7 @@ const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${TOKEN}`,
 };
-
+const body = JSON.stringify({});
 
 
 function sleep(seconds) {
@@ -39,10 +39,13 @@ async function action(url, body) {
     try {
         const response = await fetch(url, {method: `POST`, headers: headers, body: body});
         const data = await response.json();
-        const {cooldown} = data.data;
-        await sleep(cooldown.remaining_seconds);
-        return data.data;
-    } catch (error) {
+        const remaining = data?.data?.cooldown?.remaining_seconds ?? 0;
+        if (remaining > 0) {
+            await sleep(remaining);
+        }
+        return data?.data ?? data;
+    } 
+    catch (error) {
         console.error(error);
     }
 }
@@ -56,6 +59,32 @@ async function move(x,y) {
 }
 
 
+async function find_Monster(monsterCode){
+    const url = `https://api.artifactsmmo.com/monsters/${monsterCode}`;
+    const options = {method: 'GET', headers: {Accept: 'application/json'}};
+
+try {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  return data.data;
+} 
+catch (error) {
+  console.error(error);
+}
+}
+
+
+async function find_MonsterInfoOnPlayerTile() {
+    const tileContent = await check_PlayerTiles();
+    console.log(tileContent);
+    if (tileContent.type === "monster") {
+        console.log(JSON.stringify(tileContent.code));
+        const monster = await find_Monster(tileContent.code);
+        console.log(JSON.stringify(monster));
+    }
+}
+
+
 async function rest(){
     const url = 'https://api.artifactsmmo.com/my/ethanol/action/rest';
     await action(url, undefined);
@@ -66,11 +95,49 @@ async function fight() {
     const url = 'https://api.artifactsmmo.com/my/ethanol/action/fight';
     const body = JSON.stringify({ participants: ["ethanol"] });
     const data = await action(url, body);
-    const {characters} = data;
-    const {hp, max_hp} = characters[0];
-    if (hp < max_hp * 0.5) {
+    const fightData = data?.fight;
+    console.log(fightData.turns);
+    const me = characters[0];
+    if (me && me.hp < me.max_hp * 0.5) {
         await rest();
     }
+}
+
+
+async function gather(){
+    const url = 'https://api.artifactsmmo.com/my/ethanol/action/gathering';
+    const data = await action(url, body);
+}
+
+
+async function find_TileContent(map_id){
+    const url = `https://api.artifactsmmo.com/maps/id/${map_id}`;
+    const options = {method: 'GET', headers: {Accept: 'application/json'}};
+
+    try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        const {content} = data.data.interactions;
+        //console.log(JSON.stringify(content));
+        return content;
+    } 
+    catch (error) {
+        console.error(error);
+    }
+}
+
+
+async function check_PlayerTiles(){
+    const players = await get_Characters();
+    const player_TileContent = {};
+    //for (let i = 0; i < players.data.length; i++) {
+    const player = players.data[0];
+    const map_id = player.map_id;
+    const tileContent = await find_TileContent(map_id);
+    return tileContent;
+    //player_TileContent[0] = tileContent;
+    //}
+    //console.log(player_TileContent);
 }
 
 
@@ -91,13 +158,32 @@ async function accept_NewTask() {
 
 
 }
+
+
+async function get_GeBuyOrders(){
+    const url = 'https://api.artifactsmmo.com/grandexchange/orders?type=buy';
+    const options = {method: 'GET', headers: {Accept: 'application/json'}};
+
+    try {
+    const response = await fetch(url, options);
+    const data = await response.json();
+    console.log(data);
+    } 
+    catch (error) {
+    console.error(error);
+    }
+}
+
+
 async function main() {
     while (true) {
-        const data = await get_CharacterLogs();
-        if(data.content){
-            await sleep(data.content.cooldown.remaining_seconds);
-        }
-        await fight();
+        const characters = await get_Characters();
+        const character = characters.data[0];
+        // if(character.cooldown){
+        //     await sleep(character.cooldown);
+        // }
+        console.log(character.name);
+        await find_MonsterInfoOnPlayerTile();
     }
 }
 await main();
