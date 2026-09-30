@@ -9,22 +9,21 @@ const headers = {
 };
 
 async function action(url, body) {
-    const options = {
-        method: 'POST',
-        headers: headers,
-        body: body
-    };
     try {
-        const response = await fetch(url, options);
+        const response = await fetch(url, {method: `POST`, headers: headers, body: body});
         const data = await response.json();
-        
-        console.log(`hello`)
-        await sleep(cooldown);
+        if (!response.ok) {
+            console.error("HTTP error:", response.status, response.statusText);
+            console.log(await response.text());
+            return;
+        }
+        console.log(data);
+        const {cooldown} = data.data;
+        await sleep(cooldown.total_seconds);
     } catch (error) {
         console.error(error);
     }
 }
-const body = undefined;
 
 function sleep(seconds) {
     console.log(`⏳ Cooldown started: ${seconds} seconds`);
@@ -40,20 +39,20 @@ async function move(x,y) {
 
 async function check_IfTaskTaken() {
     const url = 'https://api.artifactsmmo.com/my/ethanol/action/task/complete';
-    action(url, body)
+    awaitaction(url, body)
 }
 async function check_IfTaskComplete() {
 
 }
 async function accept_NewTask() {
     const url = 'https://api.artifactsmmo.com/my/ethanol/action/task/new';
-    action(url, body)
+    awaitaction(url, body)
 
 
 }
 async function main() {
-    while (true){
-        move(0, 1);
+    while (true) {
+        await move(0, 4);
     }
 }
-main();
+await main();
